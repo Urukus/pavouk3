@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AZ Kvíz – Double Elimination</title>
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+body{
+    font-family:Arial,sans-serif;
+    background:#f1f5f9;
+}
+
+.section-title{
+    font-size:14px;
+    font-weight:bold;
+    margin-bottom:8px;
+    text-transform:uppercase;
+}
+
+.bracket{
+    display:flex;
+    gap:50px;
+    align-items:flex-start;
+    min-width:max-content;
+}
+
+.round{
+    display:flex;
+    flex-direction:column;
+    gap:28px;
+    position:relative;
+}
+
+.round-title{
+    text-align:center;
+    font-size:11px;
+    font-weight:bold;
+    background:#0f172a;
+    color:white;
+    padding:4px;
+    border-radius:4px;
+}
+
+.loser-title{
+    background:#991b1b;
+}
+
+.match-wrapper{
+    display:flex;
+    align-items:center;
+}
+
+.match{
+    width:150px;
+    border:1px solid #94a3b8;
+    border-radius:6px;
+    background:white;
+    overflow:hidden;
+    position:relative;
+}
+
+.player{
+    width:100%;
+    text-align:left;
+    padding:4px 6px;
+    font-size:11px;
+    border-bottom:1px solid #cbd5e1;
+    transition:0.15s;
+}
+
+.player:last-child{
+    border-bottom:none;
+}
+
+.player:hover{
+    background:#e2e8f0;
+}
+
+.winner{
+    background:#bbf7d0 !important;
+    font-weight:bold;
+}
+
+.connector{
+    width:30px;
+    height:2px;
+    background:#64748b;
+}
+
+</style>
+</head>
+
+<body class="p-4">
+
+<div class="bg-white rounded-xl shadow p-4 mb-4 flex gap-4 items-end">
+    <div>
+        <div class="text-xs font-bold uppercase mb-1">
+            Počet žáků
+        </div>
+
+        <input
+            id="count"
+            type="number"
+            min="2"
+            max="64"
+            value="16"
+            class="border rounded px-3 py-2 w-28"
+        >
+    </div>
+
+    <button
+        onclick="generateBracket()"
+        class="bg-slate-900 text-white px-4 py-2 rounded font-bold"
+    >
+        Losovat
+    </button>
+
+    <button
+        onclick="resetBracket()"
+        class="bg-red-100 text-red-700 px-4 py-2 rounded font-bold"
+    >
+        Reset
+    </button>
+</div>
+
+<div class="overflow-auto">
+
+<div class="mb-8">
+    <div class="section-title">Winners Bracket</div>
+    <div id="winners" class="bracket"></div>
+</div>
+
+<div>
+    <div class="section-title">Losers Bracket</div>
+    <div id="losers" class="bracket"></div>
+</div>
+
+</div>
+
+<script>
+
+let winnersRounds = [];
+let losersRounds = [];
+
+function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1));
+        [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+}
+
+function createMatches(players){
+
+    const matches=[];
+
+    for(let i=0;i<players.length;i+=2){
+
+        matches.push({
+            p1: players[i] || '',
+            p2: players[i+1] || '',
+            winner: ''
+        });
+
+    }
+
+    return matches;
+}
+
+function generateBracket(){
+
+    const count = parseInt(document.getElementById("count").value);
+
+    let players=[];
+
+    for(let i=1;i<=count;i++){
+        players.push("Žák " + i);
+    }
+
+    shuffle(players);
+
+    winnersRounds=[];
+    losersRounds=[];
+
+    let current=[...players];
+
+    while(current.length>1){
+
+        winnersRounds.push(createMatches(current));
+
+        current = new Array(Math.ceil(current.length/2)).fill('');
+
+    }
+
+    for(let i=0;i<winnersRounds.length;i++){
+
+        losersRounds.push(
+            createMatches(
+                new Array(winnersRounds[i].length * 2).fill('')
+            )
+        );
+
+    }
+
+    renderAll();
+}
+
+function selectWinner(roundIndex, matchIndex, slot){
+
+    const match = winnersRounds[roundIndex][matchIndex];
+
+    const winner = slot === 1 ? match.p1 : match.p2;
+    const loser = slot === 1 ? match.p2 : match.p1;
+
+    if(!winner) return;
+
+    match.winner = winner;
+
+    if(winnersRounds[roundIndex + 1]){
+
+        const nextMatch = Math.floor(matchIndex / 2);
+
+        if(matchIndex % 2 === 0){
+            winnersRounds[roundIndex + 1][nextMatch].p1 = winner;
+        }else{
+            winnersRounds[roundIndex + 1][nextMatch].p2 = winner;
+        }
+    }
+
+    if(loser && losersRounds[roundIndex]){
+
+        let placed = false;
+
+        for(let m of losersRounds[roundIndex]){
+
+            if(!m.p1){
+                m.p1 = loser;
+                placed = true;
+                break;
+            }
+
+            if(!m.p2){
+                m.p2 = loser;
+                placed = true;
+                break;
+            }
+        }
+    }
+
+    renderAll();
+}
+
+function selectLoserWinner(roundIndex, matchIndex, slot){
+
+    const match = losersRounds[roundIndex][matchIndex];
+
+    const winner = slot === 1 ? match.p1 : match.p2;
+
+    if(!winner) return;
+
+    match.winner = winner;
+
+    if(losersRounds[roundIndex + 1]){
+
+        const nextMatch = Math.floor(matchIndex / 2);
+
+        if(matchIndex % 2 === 0){
+            losersRounds[roundIndex + 1][nextMatch].p1 = winner;
+        }else{
+            losersRounds[roundIndex + 1][nextMatch].p2 = winner;
+        }
+    }
+
+    renderAll();
+}
+
+function renderBracket(rounds, elementId, isLosers){
+
+    const element = document.getElementById(elementId);
+
+    let html = '';
+
+    rounds.forEach((round, roundIndex)=>{
+
+        html += `
+        <div class="round">
+
+            <div class="round-title ${isLosers ? 'loser-title' : ''}">
+                ${isLosers ? 'L' : 'K'} ${roundIndex + 1}
+            </div>
+        `;
+
+        round.forEach((match, matchIndex)=>{
+
+            html += `
+            <div class="match-wrapper">
+
+                <div class="match">
+
+                    <button
+                        onclick="${isLosers
+                            ? `selectLoserWinner(${roundIndex},${matchIndex},1)`
+                            : `selectWinner(${roundIndex},${matchIndex},1)`
+                        }"
+                        class="player ${match.winner === match.p1 ? 'winner' : ''}"
+                    >
+                        ${match.p1 || '---'}
+                    </button>
+
+                    <button
+                        onclick="${isLosers
+                            ? `selectLoserWinner(${roundIndex},${matchIndex},2)`
+                            : `selectWinner(${roundIndex},${matchIndex},2)`
+                        }"
+                        class="player ${match.winner === match.p2 ? 'winner' : ''}"
+                    >
+                        ${match.p2 || '---'}
+                    </button>
+
+                </div>
+
+                <div class="connector"></div>
+
+            </div>
+            `;
+
+        });
+
+        html += `</div>`;
+
+    });
+
+    element.innerHTML = html;
+}
+
+function renderAll(){
+
+    renderBracket(
+        winnersRounds,
+        "winners",
+        false
+    );
+
+    renderBracket(
+        losersRounds,
+        "losers",
+        true
+    );
+}
+
+function resetBracket(){
+
+    winnersRounds = [];
+    losersRounds = [];
+
+    document.getElementById("winners").innerHTML = '';
+    document.getElementById("losers").innerHTML = '';
+}
+
+</script>
+
+</body>
+</html>
